@@ -946,3 +946,102 @@
   margin-bottom: 4px;
 }
 
+/* Mobile responsive menu toggle by default (desktop hidden) */
+.mobile-menu-toggle {
+  display: none;
+}
+
+/* Mobile Screens CSS Rules */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .sidebar-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 290px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.6);
+    background: rgba(10, 15, 30, 0.95);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-wrapper.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .top-nav {
+    padding: 0 16px;
+    height: 60px;
+  }
+
+  .workspace-content {
+    padding: 16px;
+    gap: 20px;
+  }
+
+  .document-title {
+    font-size: 1.35rem;
+  }
+
+  .mic-container {
+    width: 100px;
+    height: 100px;
+  }
+
+  .mic-btn {
+    width: 75px;
+    height: 75px;
+  }
+
+  .mic-btn svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .template-selector-container {
+    gap: 6px;
+  }
+
+  .template-btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
+
+  .notion-editor-card {
+    padding: 8px;
+    min-height: 300px;
+  }
+
+  /* Make blocknote font slightly more readable on mobile */
+  .notion-editor-card .bn-editor {
+    padding-left: 20px !important;
+    padding-right: 10px !important;
+  }
+}
+
+

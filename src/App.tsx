@@ -5,7 +5,9 @@ import {
   Copy, 
   Volume2, 
   Languages as LangIcon,
-  RefreshCw
+  RefreshCw,
+  Menu,
+  X
 } from 'lucide-react';
 import { Waveform } from './components/Waveform';
 import { HistoryList } from './components/HistoryList';
@@ -41,6 +43,7 @@ export const App = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('grammar');
   const [language, setLanguage] = useState('en-US');
   const [settings, setSettings] = useState<AISettings>({
@@ -162,6 +165,7 @@ export const App = () => {
     if (doc) {
       setActiveDocId(id);
       showToast(`Switched to: ${doc.title}`);
+      setIsSidebarOpen(false);
     }
   };
 
@@ -179,6 +183,7 @@ export const App = () => {
     localStorage.setItem('wispr_history', JSON.stringify(updated));
     setActiveDocId(newDoc.id);
     showToast('New document created!');
+    setIsSidebarOpen(false);
   };
 
   // Update document title
@@ -420,8 +425,16 @@ export const App = () => {
       {/* Mesh Background */}
       <div className="bg-mesh"></div>
 
+      {/* Sidebar Backdrop Overlay on Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="sidebar-backdrop" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar - Log history */}
-      <div className="sidebar-wrapper">
+      <div className={`sidebar-wrapper ${isSidebarOpen ? 'open' : ''}`}>
         <HistoryList 
           items={documents}
           activeId={activeDocId}
@@ -436,11 +449,20 @@ export const App = () => {
       <div className="main-workspace">
         {/* Navigation Bar */}
         <header className="top-nav">
-          <div className="app-brand">
-            <div className="brand-glow">
-              <Mic size={18} color="white" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button 
+              className="btn-icon mobile-menu-toggle" 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title="Toggle Menu"
+            >
+              {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+            <div className="app-brand">
+              <div className="brand-glow">
+                <Mic size={18} color="white" />
+              </div>
+              <h1>Wispr Flow</h1>
             </div>
-            <h1>Wispr Flow</h1>
           </div>
 
           <div className="nav-actions">

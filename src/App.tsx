@@ -482,105 +482,110 @@ export const App = () => {
 
         {/* Core content */}
         <main className="workspace-content document-view">
-          {/* Active document title and copy button */}
-          <div className="document-header">
-            <h2 className="document-title">{activeDoc?.title || 'Untitled Document'}</h2>
-            <button 
-              className="btn-secondary btn-sm"
-              onClick={copyToClipboard}
-              title="Copy as Markdown"
-            >
-              <Copy size={13} style={{ marginRight: '4px' }} />
-              Copy MD
-            </button>
-          </div>
-
-          {/* Recording & Dictation Station */}
-          <div className="dictate-center">
-            <div className="mic-container">
-              {isRecording && (
-                <>
-                  <div className="ripple-effect"></div>
-                  <div className="ripple-effect"></div>
-                  <div className="ripple-effect"></div>
-                </>
-              )}
-              <button 
-                className={`mic-btn ${isRecording ? 'recording' : ''} ${isProcessing ? 'processing' : ''}`}
-                onClick={toggleRecording}
-                disabled={isProcessing}
-                title="Toggle Recording (Alt+D)"
-              >
-                {isProcessing ? (
-                  <RefreshCw size={36} className="animate-spin" style={{ animation: 'spin 2s linear infinite' }} />
-                ) : (
-                  <Mic size={36} />
+          {/* Top Sticky/Static Section */}
+          <div className="workspace-header-section">
+            {/* Recording & Dictation Station */}
+            <div className="dictate-center">
+              <div className="mic-container">
+                {isRecording && (
+                  <>
+                    <div className="ripple-effect"></div>
+                    <div className="ripple-effect"></div>
+                    <div className="ripple-effect"></div>
+                  </>
                 )}
-              </button>
-            </div>
+                <button 
+                  className={`mic-btn ${isRecording ? 'recording' : ''} ${isProcessing ? 'processing' : ''}`}
+                  onClick={toggleRecording}
+                  disabled={isProcessing}
+                  title="Toggle Recording (Alt+D)"
+                >
+                  {isProcessing ? (
+                    <RefreshCw size={36} className="animate-spin" style={{ animation: 'spin 2s linear infinite' }} />
+                  ) : (
+                    <Mic size={36} />
+                  )}
+                </button>
+              </div>
 
-            <div className="recording-status">
-              {isRecording ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <p className="text-error" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
-                    Listening
+              <div className="recording-status">
+                {isRecording ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <p className="text-error" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+                      Listening
+                      <span className="pulse-dots">
+                        <span></span><span></span><span></span>
+                      </span>
+                    </p>
+                    {liveTranscript && (
+                      <div className="live-transcript-bubble">
+                        "{liveTranscript}"
+                      </div>
+                    )}
+                  </div>
+                ) : isProcessing ? (
+                  <p className="text-primary" style={{ display: 'flex', alignItems: 'center' }}>
+                    Refining speech
                     <span className="pulse-dots">
                       <span></span><span></span><span></span>
                     </span>
                   </p>
-                  {liveTranscript && (
-                    <div className="live-transcript-bubble">
-                      "{liveTranscript}"
-                    </div>
-                  )}
-                </div>
-              ) : isProcessing ? (
-                <p className="text-primary" style={{ display: 'flex', alignItems: 'center' }}>
-                  Refining speech
-                  <span className="pulse-dots">
-                    <span></span><span></span><span></span>
-                  </span>
-                </p>
-              ) : (
-                <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
-                  Click mic or press <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)' }}>Alt + D</kbd> to record
-                </p>
-              )}
+                ) : (
+                  <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
+                    Click mic or press <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)' }}>Alt + D</kbd> to record
+                  </p>
+                )}
+              </div>
+
+              {/* Waveform component */}
+              <Waveform isRecording={isRecording} stream={audioStream} />
             </div>
 
-            {/* Waveform component */}
-            <Waveform isRecording={isRecording} stream={audioStream} />
-          </div>
-
-          {/* Smart Preset Formatting Bar */}
-          <div className="template-selector-container">
-            <span className="template-selector-label">Refinement Preset</span>
-            <div className="template-selector">
-              {FORMATTING_TEMPLATES.map((t) => (
+            {/* Smart Preset Formatting Bar */}
+            <div className="template-selector-container">
+              <span className="template-selector-label">Refinement Preset</span>
+              <div className="template-selector">
+                {FORMATTING_TEMPLATES.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`template-btn ${selectedTemplate === t.id ? 'active' : ''}`}
+                    onClick={() => handleTemplateChange(t.id)}
+                  >
+                    {t.name}
+                  </button>
+                ))}
                 <button
-                  key={t.id}
-                  className={`template-btn ${selectedTemplate === t.id ? 'active' : ''}`}
-                  onClick={() => handleTemplateChange(t.id)}
+                  className={`template-btn ${selectedTemplate === 'custom' ? 'active' : ''}`}
+                  onClick={() => handleTemplateChange('custom')}
                 >
-                  {t.name}
+                  Custom System Prompt
                 </button>
-              ))}
-              <button
-                className={`template-btn ${selectedTemplate === 'custom' ? 'active' : ''}`}
-                onClick={() => handleTemplateChange('custom')}
+              </div>
+            </div>
+
+            {/* Active document title and copy button - placed under recording section */}
+            <div className="document-header">
+              <h2 className="document-title">{activeDoc?.title || 'Untitled Document'}</h2>
+              <button 
+                className="btn-secondary btn-sm"
+                onClick={copyToClipboard}
+                title="Copy as Markdown"
               >
-                Custom System Prompt
+                <Copy size={13} style={{ marginRight: '4px' }} />
+                Copy MD
               </button>
             </div>
           </div>
 
-          {/* BlockNote Rich Editor View */}
-          <div className="notion-editor-card glass-panel">
-            <BlockNoteView 
-              editor={editor} 
-              theme="dark" 
-              onChange={handleEditorChange}
-            />
+          {/* Scrollable Editor Area */}
+          <div className="editor-scroll-boundary">
+            <div className="notion-editor-card glass-panel">
+              <BlockNoteView 
+                editor={editor} 
+                theme="dark" 
+                onChange={handleEditorChange}
+              />
+            </div>
           </div>
         </main>
       </div>

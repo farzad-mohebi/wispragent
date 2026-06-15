@@ -7,7 +7,8 @@ import {
   Languages as LangIcon,
   RefreshCw,
   Menu,
-  X
+  X,
+  Share
 } from 'lucide-react';
 import { Waveform } from './components/Waveform';
 import { HistoryList } from './components/HistoryList';
@@ -21,6 +22,7 @@ import type {
   AISettings, 
   TemplateId 
 } from './utils/ai';
+import { getVaultHandle, verifyPermission } from './utils/obsidian';
 
 // BlockNote Imports
 import { BlockNoteView } from "@blocknote/mantine";
@@ -269,6 +271,65 @@ export const App = () => {
       showToast('Copied document markdown to clipboard!');
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Upload/Sync active document to Obsidian vault
+  const handleUploadToObsidian = async () => {
+    if (!editor || !activeDoc) return;
+    try {
+      const markdown = await editor.blocksToMarkdownLossy(editor.document);
+      if (!markdown) {
+        showToast('Document is empty.');
+        return;
+      }
+
+      // 1. Try local filesystem sync first
+      const dirHandle = await getVaultHandle();
+      if (dirHandle) {
+        const hasPermission = await verifyPermission(dirHandle, true);
+        if (hasPermission) {
+          const safeTitle = (activeDoc.title || 'Untitled note')
+            .replace(/[\\/:*?"<>|]/g, '_')
+            .trim();
+          
+          const fileHandle = await dirHandle.getFileHandle(`${safeTitle}.md`, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(markdown);
+          await writable.close();
+          showToast(`Saved to Obsidian: ${safeTitle}.md!`);
+          return;
+        }
+      }
+
+      // 2. Fallback to Obsidian URI
+      const vaultName = localStorage.getItem('obsidian_vault_name') || '';
+      if (vaultName.trim()) {
+        const safeTitle = encodeURIComponent(activeDoc.title || 'Untitled note');
+        const encodedContent = encodeURIComponent(markdown);
+        const obsidianUri = `obsidian://new?vault=${encodeURIComponent(vaultName.trim())}&name=${safeTitle}&content=${encodedContent}`;
+        window.open(obsidianUri, '_blank');
+        showToast('Opened note in Obsidian.');
+      } else {
+        // 3. Fallback: Prompt user to set up Vault name or directory
+        const wantSetup = window.confirm("Obsidian Vault not connected. Would you like to open Settings to connect your vault?");
+        if (wantSetup) {
+          setIsSettingsOpen(true);
+        } else {
+          // Just download it
+          const element = document.createElement("a");
+          const file = new Blob([markdown], { type: 'text/plain' });
+          element.href = URL.createObjectURL(file);
+          element.download = `${activeDoc.title || 'note'}.md`;
+          document.body.appendChild(element);
+          element.click();
+          document.body.removeChild(element);
+          showToast('Downloaded markdown file.');
+        }
+      }
+    } catch (e: any) {
+      console.error(e);
+      showToast(`Obsidian upload failed: ${e.message || e}`);
     }
   };
 
@@ -566,14 +627,24 @@ export const App = () => {
             {/* Active document title and copy button - placed under recording section */}
             <div className="document-header">
               <h2 className="document-title">{activeDoc?.title || 'Untitled Document'}</h2>
-              <button 
-                className="btn-secondary btn-sm"
-                onClick={copyToClipboard}
-                title="Copy as Markdown"
-              >
-                <Copy size={13} style={{ marginRight: '4px' }} />
-                Copy MD
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="btn-secondary btn-sm"
+                  onClick={copyToClipboard}
+                  title="Copy as Markdown"
+                >
+                  <Copy size={13} style={{ marginRight: '4px' }} />
+                  Copy MD
+                </button>
+                <button 
+                  className="btn-primary btn-sm"
+                  onClick={handleUploadToObsidian}
+                  title="Upload to Obsidian Vault"
+                >
+                  <Share size={13} style={{ marginRight: '4px' }} />
+                  Obsidian Sync
+                </button>
+              </div>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { X, Key, Globe, Sparkles, AlertCircle, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Key, Globe, Sparkles, AlertCircle, Info, Folder } from 'lucide-react';
 import type { AISettings } from '../utils/ai';
+import { getVaultHandle, saveVaultHandle } from '../utils/obsidian';
 
 interface SettingsModalProps {
   settings: AISettings;
@@ -41,6 +42,42 @@ export const SettingsModal = ({
   const [lang, setLang] = useState(language);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  // Obsidian States
+  const [obsidianVaultName, setObsidianVaultName] = useState('');
+  const [hasVaultFolder, setHasVaultFolder] = useState(false);
+  const [folderName, setFolderName] = useState('');
+
+  useEffect(() => {
+    const savedVault = localStorage.getItem('obsidian_vault_name') || '';
+    setObsidianVaultName(savedVault);
+
+    const checkVaultFolder = async () => {
+      const handle = await getVaultHandle();
+      if (handle) {
+        setHasVaultFolder(true);
+        setFolderName(handle.name);
+      }
+    };
+    checkVaultFolder();
+  }, []);
+
+  const handleSelectFolder = async () => {
+    try {
+      if (typeof (window as any).showDirectoryPicker !== 'function') {
+        alert("Local file system sync is not supported in this browser. Please use Chrome, Edge, or Opera.");
+        return;
+      }
+      const handle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite'
+      });
+      await saveVaultHandle(handle);
+      setHasVaultFolder(true);
+      setFolderName(handle.name);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSave = () => {
     onSaveSettings({
       provider,
@@ -49,6 +86,7 @@ export const SettingsModal = ({
       openRouterModel,
     });
     onSaveLanguage(lang);
+    localStorage.setItem('obsidian_vault_name', obsidianVaultName);
     onClose();
   };
 
@@ -164,6 +202,48 @@ export const SettingsModal = ({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Section: Obsidian Vault Integration */}
+          <div className="setting-section" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '20px' }}>
+            <label className="section-label">
+              <Folder size={16} />
+              <span>Obsidian Vault Integration</span>
+            </label>
+            <div className="input-group">
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleSelectFolder}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  {hasVaultFolder ? 'Reconnect Vault Folder' : 'Connect Vault Folder'}
+                </button>
+                <span className="helper-text" style={{ color: hasVaultFolder ? 'hsl(var(--success))' : 'inherit' }}>
+                  {hasVaultFolder ? `Connected: ${folderName} ✓` : 'No local directory connected.'}
+                </span>
+              </div>
+              <input
+                type="text"
+                placeholder="Obsidian Vault Name (for URI/Mobile fallback)"
+                value={obsidianVaultName}
+                onChange={(e) => setObsidianVaultName(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  color: 'hsl(var(--text-primary))',
+                  fontSize: '0.95rem',
+                  marginTop: '8px'
+                }}
+              />
+            </div>
+            <p className="helper-text">
+              Connecting a folder allows direct background note writes. Vault Name is used on mobile/unsupported platforms via Obsidian URIs.
+            </p>
           </div>
 
           {/* Section: Custom Template Prompt */}

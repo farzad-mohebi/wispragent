@@ -1003,6 +1003,13 @@
   .workspace-content {
     padding: 16px;
     gap: 20px;
+    overflow-y: auto !important;
+    height: calc(100vh - 60px) !important;
+  }
+
+  .editor-scroll-boundary {
+    overflow-y: visible !important;
+    flex: none !important;
   }
 
   .document-title {

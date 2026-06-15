@@ -16,12 +16,20 @@
     "@emotion/react": "^11.14.0",
     "@mantine/core": "^9.3.1",
     "@mantine/hooks": "^9.3.1",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.18.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

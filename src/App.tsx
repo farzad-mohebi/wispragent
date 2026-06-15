@@ -8,7 +8,9 @@ import {
   RefreshCw,
   Menu,
   X,
-  Share
+  Share,
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { Waveform } from './components/Waveform';
 import { HistoryList } from './components/HistoryList';
@@ -23,6 +25,8 @@ import type {
   TemplateId 
 } from './utils/ai';
 import { getVaultHandle, verifyPermission } from './utils/obsidian';
+import { AuthScreen } from './components/AuthScreen';
+import { AdminDashboard } from './components/AdminDashboard';
 
 // BlockNote Imports
 import { BlockNoteView } from "@blocknote/mantine";
@@ -38,6 +42,13 @@ declare global {
     SpeechRecognition?: any;
     webkitSpeechRecognition?: any;
   }
+}
+
+interface UserState {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
 }
 
 export const App = () => {
@@ -73,47 +84,110 @@ export const App = () => {
   // BlockNote Editor Instance
   const editor = useCreateBlockNote();
 
-  // Load configuration from local storage on mount
+  // Authentication State
+  const [token, setToken] = useState<string | null>(localStorage.getItem('wispr_token'));
+  const [user, setUser] = useState<UserState | null>(() => {
+    const u = localStorage.getItem('wispr_user');
+    try {
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+
+  const fetchDocuments = async (authToken: string) => {
+    try {
+      const response = await fetch('/api/documents', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDocuments(data);
+        if (data.length > 0) {
+          setActiveDocId(data[0].id);
+        } else {
+          // Create a default first document
+          const newDoc: DocumentItem = {
+            id: Date.now().toString(),
+            title: 'Untitled Document',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+            rawText: '',
+            formattedText: ''
+          };
+          await fetch('/api/documents', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(newDoc)
+          });
+          setDocuments([newDoc]);
+          setActiveDocId(newDoc.id);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch documents", e);
+    }
+  };
+
+  const fetchCredentials = async (authToken: string) => {
+    try {
+      const response = await fetch('/api/credentials', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch credentials", e);
+    }
+  };
+
+  const handleSignOut = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('wispr_token');
+    localStorage.removeItem('wispr_user');
+    setDocuments([]);
+    setActiveDocId(null);
+    setIsAdminOpen(false);
+  };
+
+  const handleAuthSuccess = (newToken: string, newUser: UserState) => {
+    setToken(newToken);
+    setUser(newUser);
+    localStorage.setItem('wispr_token', newToken);
+    localStorage.setItem('wispr_user', JSON.stringify(newUser));
+    showToast(`Logged in as ${newUser.name}`);
+  };
+
+  // Load configuration from database or local storage on mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem('wispr_settings');
     const savedLanguage = localStorage.getItem('wispr_lang');
-    const savedDocuments = localStorage.getItem('wispr_history');
-
-    if (savedSettings) {
-      try {
-        setSettings(JSON.parse(savedSettings));
-      } catch (e) {
-        console.error(e);
-      }
-    }
     if (savedLanguage) setLanguage(savedLanguage);
-    
-    let loadedDocs: DocumentItem[] = [];
-    if (savedDocuments) {
-      try {
-        loadedDocs = JSON.parse(savedDocuments);
-        setDocuments(loadedDocs);
-      } catch (e) {
-        console.error(e);
-      }
-    }
 
-    // Initialize with a default document if empty
-    if (loadedDocs.length === 0) {
-      const defaultDoc: DocumentItem = {
-        id: Date.now().toString(),
-        title: 'Untitled Document',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
-        rawText: '',
-        formattedText: ''
-      };
-      setDocuments([defaultDoc]);
-      setActiveDocId(defaultDoc.id);
-      localStorage.setItem('wispr_history', JSON.stringify([defaultDoc]));
-    } else {
-      setActiveDocId(loadedDocs[0].id);
+    if (token) {
+      fetchDocuments(token);
+      fetchCredentials(token);
+      
+      fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }).then(res => {
+        if (!res.ok) {
+          handleSignOut();
+        }
+      }).catch(err => console.error("Me check failed", err));
     }
-  }, []);
+  }, [token]);
 
   // Sync editor fields when active document changes
   useEffect(() => {
@@ -146,6 +220,23 @@ export const App = () => {
         const updated = prevDocs.map(doc => {
           if (doc.id === activeDocId) {
             if (doc.formattedText === html) return doc;
+
+            if (token) {
+              fetch(`/api/documents/${activeDocId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  title: doc.title,
+                  rawText: markdown,
+                  formattedText: html,
+                  timestamp: doc.timestamp
+                })
+              }).catch(console.error);
+            }
+
             return {
               ...doc,
               formattedText: html,
@@ -154,7 +245,6 @@ export const App = () => {
           }
           return doc;
         });
-        localStorage.setItem('wispr_history', JSON.stringify(updated));
         return updated;
       });
     } catch (e) {
@@ -172,7 +262,7 @@ export const App = () => {
   };
 
   // Create new document action
-  const handleCreateDocument = () => {
+  const handleCreateDocument = async () => {
     const newDoc: DocumentItem = {
       id: Date.now().toString(),
       title: `Document ${documents.length + 1}`,
@@ -180,32 +270,81 @@ export const App = () => {
       rawText: '',
       formattedText: ''
     };
+
+    if (token) {
+      try {
+        await fetch('/api/documents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newDoc)
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     const updated = [newDoc, ...documents];
     setDocuments(updated);
-    localStorage.setItem('wispr_history', JSON.stringify(updated));
     setActiveDocId(newDoc.id);
     showToast('New document created!');
     setIsSidebarOpen(false);
   };
 
   // Update document title
-  const handleUpdateTitle = (id: string, newTitle: string) => {
-    const updated = documents.map(doc => {
-      if (doc.id === id) {
-        return { ...doc, title: newTitle };
+  const handleUpdateTitle = async (id: string, newTitle: string) => {
+    const doc = documents.find(d => d.id === id);
+    if (!doc) return;
+
+    if (token) {
+      try {
+        await fetch(`/api/documents/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: newTitle,
+            rawText: doc.rawText,
+            formattedText: doc.formattedText,
+            timestamp: doc.timestamp
+          })
+        });
+      } catch (e) {
+        console.error(e);
       }
-      return doc;
+    }
+
+    const updated = documents.map(d => {
+      if (d.id === id) {
+        return { ...d, title: newTitle };
+      }
+      return d;
     });
     setDocuments(updated);
-    localStorage.setItem('wispr_history', JSON.stringify(updated));
     showToast('Document renamed.');
   };
 
   // Delete document action
-  const handleDeleteDocument = (id: string) => {
+  const handleDeleteDocument = async (id: string) => {
+    if (token) {
+      try {
+        await fetch(`/api/documents/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     const updated = documents.filter(doc => doc.id !== id);
     setDocuments(updated);
-    localStorage.setItem('wispr_history', JSON.stringify(updated));
     showToast('Document deleted.');
 
     if (activeDocId === id) {
@@ -219,17 +358,43 @@ export const App = () => {
           rawText: '',
           formattedText: ''
         };
+        if (token) {
+          try {
+            await fetch('/api/documents', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(fallback)
+            });
+          } catch (e) {
+            console.error(e);
+          }
+        }
         setDocuments([fallback]);
         setActiveDocId(fallback.id);
-        localStorage.setItem('wispr_history', JSON.stringify([fallback]));
       }
     }
   };
 
   // Save settings helpers
-  const saveSettings = (newSettings: AISettings) => {
+  const saveSettings = async (newSettings: AISettings) => {
     setSettings(newSettings);
-    localStorage.setItem('wispr_settings', JSON.stringify(newSettings));
+    if (token) {
+      try {
+        await fetch('/api/credentials', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newSettings)
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
     showToast('Settings saved successfully!');
   };
 
@@ -238,7 +403,22 @@ export const App = () => {
     localStorage.setItem('wispr_lang', lang);
   };
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
+    if (token) {
+      try {
+        for (const doc of documents) {
+          await fetch(`/api/documents/${doc.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     const emptyDocs = [{
       id: Date.now().toString(),
       title: 'Untitled Document',
@@ -246,9 +426,25 @@ export const App = () => {
       rawText: '',
       formattedText: ''
     }];
+
+    if (token) {
+      try {
+        await fetch('/api/documents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(emptyDocs[0])
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     setDocuments(emptyDocs);
     setActiveDocId(emptyDocs[0].id);
-    localStorage.setItem('wispr_history', JSON.stringify(emptyDocs));
+    showToast('Dictation log cleared.');
     showToast('Dictation log cleared.');
   };
 
@@ -481,6 +677,10 @@ export const App = () => {
 
   const activeDoc = documents.find(d => d.id === activeDocId);
 
+  if (!token) {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <div className="app-container">
       {/* Mesh Background */}
@@ -527,6 +727,15 @@ export const App = () => {
           </div>
 
           <div className="nav-actions">
+            {user?.role === 'admin' && (
+              <button 
+                className="btn-icon text-primary" 
+                onClick={() => setIsAdminOpen(true)}
+                title="Admin Dashboard"
+              >
+                <Shield size={18} />
+              </button>
+            )}
             <span className="template-tag" style={{ background: 'rgba(255,255,255,0.03)', color: 'hsl(var(--text-muted))', border: '1px solid rgba(255,255,255,0.06)' }}>
               <LangIcon size={12} style={{ marginRight: '4px' }} />
               {getLanguageName(language)}
@@ -537,6 +746,13 @@ export const App = () => {
               title="Settings"
             >
               <Settings size={18} />
+            </button>
+            <button 
+              className="btn-icon text-error" 
+              onClick={handleSignOut}
+              title="Sign Out"
+            >
+              <LogOut size={18} />
             </button>
           </div>
         </header>
@@ -670,6 +886,14 @@ export const App = () => {
           onSaveLanguage={saveLanguage}
           onClose={() => setIsSettingsOpen(false)}
           onClearHistory={clearHistory}
+        />
+      )}
+
+      {/* Admin Dashboard */}
+      {isAdminOpen && token && (
+        <AdminDashboard
+          token={token}
+          onClose={() => setIsAdminOpen(false)}
         />
       )}
 

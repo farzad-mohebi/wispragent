@@ -295,9 +295,9 @@ const createProxyHandler = (targetUrlSelector) => {
   };
 };
 
-app.all('/api-openai/:splat*', createProxyHandler((path) => `https://api.openai.com${path}`));
-app.all('/api-openrouter/:splat*', createProxyHandler((path) => `https://openrouter.ai${path}`));
-app.all('/api-gemini/:splat*', createProxyHandler((path) => `https://generativelanguage.googleapis.com${path}`));
+app.all('/api-openai/*splat', createProxyHandler((path) => `https://api.openai.com${path}`));
+app.all('/api-openrouter/*splat', createProxyHandler((path) => `https://openrouter.ai${path}`));
+app.all('/api-gemini/*splat', createProxyHandler((path) => `https://generativelanguage.googleapis.com${path}`));
 
 // -------------------------------------------------------------
 // Serve static built web assets
@@ -306,7 +306,7 @@ app.all('/api-gemini/:splat*', createProxyHandler((path) => `https://generativel
 app.use(express.static(nodePath.join(__dirname, '../dist')));
 
 // SPA client router fallback
-app.get('/:splat*', (req, res) => {
+app.get('/*splat', (req, res) => {
   res.sendFile(nodePath.join(__dirname, '../dist/index.html'));
 });
 

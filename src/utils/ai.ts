@@ -198,7 +198,7 @@ export async function formatTranscript(
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.apiKey}`,
           'HTTP-Referer': 'http://localhost:5173',
-          'X-Title': 'Wispr Flow'
+          'X-Title': 'Wisper Agent'
         },
         body: JSON.stringify({
           model,

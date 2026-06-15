@@ -461,7 +461,7 @@ export const App = () => {
               <div className="brand-glow">
                 <Mic size={18} color="white" />
               </div>
-              <h1>Wispr Flow</h1>
+              <h1>Wisper Agent</h1>
             </div>
           </div>
 

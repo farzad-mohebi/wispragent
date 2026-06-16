@@ -80,6 +80,8 @@ export const App = () => {
   const recognitionRef = useRef<any>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
   const isUpdatingRef = useRef(false);
+  const isRecordingIntentRef = useRef(false);
+  const accumulatedTextRef = useRef('');
 
   // BlockNote Editor Instance
   const editor = useCreateBlockNote();
@@ -554,6 +556,8 @@ export const App = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       setAudioStream(stream);
       activeStreamRef.current = stream;
+      isRecordingIntentRef.current = true;
+      accumulatedTextRef.current = '';
 
       const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognitionClass) {
@@ -569,19 +573,19 @@ export const App = () => {
         recognition.lang = language;
       }
 
-      let finalTranscript = '';
-
       recognition.onresult = (event: any) => {
         let interimTranscript = '';
+        let localFinal = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + ' ';
+            localFinal += event.results[i][0].transcript + ' ';
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
         }
         
-        const combined = (finalTranscript + interimTranscript).trim().replace(/\s+/g, ' ');
+        const currentSession = (localFinal + interimTranscript).trim().replace(/\s+/g, ' ');
+        const combined = (accumulatedTextRef.current + ' ' + currentSession).trim().replace(/\s+/g, ' ');
         setLiveTranscript(combined);
       };
 
@@ -589,14 +593,32 @@ export const App = () => {
         console.error('Speech recognition error:', event.error);
         if (event.error === 'not-allowed') {
           showToast('Microphone access denied.');
+          isRecordingIntentRef.current = false;
+          stopMicrophone();
+        } else if (event.error === 'aborted') {
+          // Aborted can happen normally when restarting, do not trigger error states
+          console.log('Speech recognition aborted (likely restarting).');
         } else {
           showToast(`Speech recognition error: ${event.error}`);
+          isRecordingIntentRef.current = false;
+          stopMicrophone();
         }
-        stopMicrophone();
       };
 
       recognition.onend = () => {
-        setIsRecording(false);
+        if (isRecordingIntentRef.current) {
+          // The session ended due to browser timeout / silence.
+          // Save what we have accumulated so far, and restart!
+          accumulatedTextRef.current = liveTranscript;
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.error('Failed to auto-restart speech recognition:', e);
+            setIsRecording(false);
+          }
+        } else {
+          setIsRecording(false);
+        }
       };
 
       recognitionRef.current = recognition;
@@ -606,11 +628,13 @@ export const App = () => {
     } catch (err: any) {
       console.error('Could not start recording:', err);
       showToast('Microphone access is required.');
+      isRecordingIntentRef.current = false;
       stopMicrophone();
     }
   };
 
   const stopMicrophone = () => {
+    isRecordingIntentRef.current = false;
     if (activeStreamRef.current) {
       activeStreamRef.current.getTracks().forEach(track => track.stop());
       activeStreamRef.current = null;
@@ -620,6 +644,7 @@ export const App = () => {
   };
 
   const stopRecording = () => {
+    isRecordingIntentRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }

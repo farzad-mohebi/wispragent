@@ -1355,6 +1355,46 @@
   gap: 8px;
 }
 
+/* Mode Toggle Controls */
+.mode-toggle-container {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 3px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.mode-btn {
+  padding: 8px 20px;
+  border-radius: 18px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: hsl(var(--text-muted));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mode-btn:hover {
+  color: hsl(var(--text-primary));
+}
+
+.mode-btn.active {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  color: white;
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+/* Disabled Preset State */
+.template-selector-container.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  filter: blur(0.5px);
+}
+
 
 
 

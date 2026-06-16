@@ -95,6 +95,7 @@ export const App = () => {
     }
   });
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [appMode, setAppMode] = useState<'transcribe' | 'explain'>('transcribe');
 
   const fetchDocuments = async (authToken: string) => {
     try {
@@ -644,10 +645,10 @@ export const App = () => {
   const processTranscription = async (textToProcess: string) => {
     if (!textToProcess.trim()) return;
     setIsProcessing(true);
-    showToast('AI is refining your speech...');
+    showToast(appMode === 'explain' ? 'AI is executing commands...' : 'AI is refining your speech...');
 
     try {
-      const result = await formatTranscript(textToProcess, selectedTemplate, settings);
+      const result = await formatTranscript(textToProcess, selectedTemplate, settings, appMode);
       
       if (editor) {
         const blocks = editor.tryParseHTMLToBlocks(result);
@@ -658,7 +659,7 @@ export const App = () => {
           editor.replaceBlocks(editor.document, blocks);
         }
       }
-      showToast('Speech refined and added!');
+      showToast(appMode === 'explain' ? 'Formatting applied!' : 'Speech refined and added!');
     } catch (error: any) {
       console.error(error);
       showToast('AI formatting failed.');
@@ -761,6 +762,22 @@ export const App = () => {
         <main className="workspace-content document-view">
           {/* Top Sticky/Static Section */}
           <div className="workspace-header-section">
+            {/* Mode Toggle Bar */}
+            <div className="mode-toggle-container">
+              <button 
+                className={`mode-btn ${appMode === 'transcribe' ? 'active' : ''}`}
+                onClick={() => setAppMode('transcribe')}
+              >
+                Transcribe Mode
+              </button>
+              <button 
+                className={`mode-btn ${appMode === 'explain' ? 'active' : ''}`}
+                onClick={() => setAppMode('explain')}
+              >
+                Explain Mode
+              </button>
+            </div>
+
             {/* Recording & Dictation Station */}
             <div className="dictate-center">
               <div className="mic-container">
@@ -819,21 +836,23 @@ export const App = () => {
             </div>
 
             {/* Smart Preset Formatting Bar */}
-            <div className="template-selector-container">
+            <div className={`template-selector-container ${appMode === 'explain' ? 'disabled' : ''}`}>
               <span className="template-selector-label">Refinement Preset</span>
               <div className="template-selector">
                 {FORMATTING_TEMPLATES.map((t) => (
                   <button
                     key={t.id}
                     className={`template-btn ${selectedTemplate === t.id ? 'active' : ''}`}
-                    onClick={() => handleTemplateChange(t.id)}
+                    onClick={() => appMode !== 'explain' && handleTemplateChange(t.id)}
+                    disabled={appMode === 'explain'}
                   >
                     {t.name}
                   </button>
                 ))}
                 <button
                   className={`template-btn ${selectedTemplate === 'custom' ? 'active' : ''}`}
-                  onClick={() => handleTemplateChange('custom')}
+                  onClick={() => appMode !== 'explain' && handleTemplateChange('custom')}
+                  disabled={appMode === 'explain'}
                 >
                   Custom System Prompt
                 </button>

@@ -56,9 +56,23 @@ export interface AISettings {
 /**
  * Basic offline local formatter that cleans up text when no API key is available.
  */
-function localFallbackFormat(text: string, templateId: TemplateId, customPrompt?: string): string {
+function localFallbackFormat(text: string, templateId: TemplateId, customPrompt?: string, appMode: 'transcribe' | 'explain' = 'transcribe'): string {
   const trimmed = text.trim();
   if (!trimmed) return '';
+
+  if (appMode === 'explain') {
+    const prefix = `[Local Offline Explain Mode]\n\n`;
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('put a title') || lower.startsWith('make a title')) {
+      const title = trimmed.replace(/^(put|make) a title/i, '').trim();
+      return `${prefix}<h1>${title}</h1>`;
+    }
+    if (lower.startsWith('start bullet point') || lower.startsWith('add bullet point')) {
+      const item = trimmed.replace(/^(start|add) bullet point/i, '').replace(/^is/i, '').trim();
+      return `${prefix}<ul><li>${item}</li></ul>`;
+    }
+    return `${prefix}<p>${trimmed}</p>`;
+  }
 
   // Basic capitalization of first letter of sentences
   let processed = trimmed
@@ -95,7 +109,8 @@ function localFallbackFormat(text: string, templateId: TemplateId, customPrompt?
 export async function formatTranscript(
   text: string,
   templateId: TemplateId,
-  settings: AISettings
+  settings: AISettings,
+  appMode: 'transcribe' | 'explain' = 'transcribe'
 ): Promise<string> {
   const trimmedText = text.trim();
   if (!trimmedText) return '';
@@ -103,13 +118,27 @@ export async function formatTranscript(
   if (settings.provider === 'none' || !settings.apiKey.trim()) {
     // Delay slightly to simulate AI processing for premium feel
     await new Promise(resolve => setTimeout(resolve, 800));
-    return localFallbackFormat(trimmedText, templateId, settings.customPrompt);
+    return localFallbackFormat(trimmedText, templateId, settings.customPrompt, appMode);
   }
 
-  const template = FORMATTING_TEMPLATES.find(t => t.id === templateId);
-  let systemPrompt = templateId === 'custom' 
-    ? settings.customPrompt || 'Rewrite and clean up the text.'
-    : template?.systemPrompt || 'Clean up and format this text.';
+  let systemPrompt = '';
+  if (appMode === 'explain') {
+    systemPrompt = `You are a voice-driven document formatting assistant. Your job is to parse the user's spoken thoughts which contain a mixture of formatting commands (e.g., "put a title", "make a heading", "start bullet point", "bold this") and actual content.
+Convert these spoken instructions into clean HTML representing the requested formatted content.
+CRITICAL: Do NOT transcribe the formatting commands literally. Instead, interpret and execute them, outputting ONLY the resulting formatted HTML.
+If there are no formatting commands, treat it as a standard paragraph and output a <p> block.
+
+Examples:
+- Input: "put a title Project B" -> Output: "<h1>Project B</h1>"
+- Input: "start bullet point Joe" -> Output: "<ul><li>Joe</li></ul>"
+- Input: "write a paragraph Hello world and then bold the word Hello" -> Output: "<p><strong>Hello</strong> world</p>"
+- Input: "make a heading Joe and then add a sub heading Joe is a developer" -> Output: "<h1>Joe</h1><h2>Joe is a developer</h2>"`;
+  } else {
+    const template = FORMATTING_TEMPLATES.find(t => t.id === templateId);
+    systemPrompt = templateId === 'custom' 
+      ? settings.customPrompt || 'Rewrite and clean up the text.'
+      : template?.systemPrompt || 'Clean up and format this text.';
+  }
 
   // Instruct AI to preserve the original language (e.g. Persian)
   systemPrompt += "\n\nCRITICAL: You must preserve the language of the input transcript. If the input text is in Persian (Farsi), write the refined, formatted output entirely in Persian. Do not translate it to English.";
